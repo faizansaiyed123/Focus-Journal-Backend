@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS daily_checkins (
     focus_percent INT CHECK (focus_percent >= 0 AND focus_percent <= 100),
     tags TEXT[], -- Optional user-defined tags (like #productive, #tired)
     note TEXT,   -- Optional reflection
-    sleep_duration NUMERIC CHECK (sleep_duration >= 0 AND sleep_duration <= 24)
+    sleep_duration NUMERIC CHECK (sleep_duration >= 0 AND sleep_duration <= 24),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
 
