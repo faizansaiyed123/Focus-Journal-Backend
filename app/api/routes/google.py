@@ -171,7 +171,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             raise HTTPException(status_code=500, detail="Failed to create access token")
 
 
-        redirect_url = f"http://https://focus-journal-frontend.vercel.app/auth/callback?access_token={jwt_token}&provider=google"
+        redirect_url = f"//https://focus-journal-frontend.vercel.app/auth/callback?access_token={jwt_token}&provider=google"
 
 
         logging.debug("=== Google Callback Completed Successfully ===")
