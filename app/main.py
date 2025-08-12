@@ -47,6 +47,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+# python-3.12.7
 
 app.add_middleware(
     SessionMiddleware,
