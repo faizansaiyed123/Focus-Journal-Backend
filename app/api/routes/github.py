@@ -48,7 +48,7 @@ async def github_callback(request: Request, db: AsyncSession = Depends(get_db)):
     else:
         user_id = str(user_row.id)
     access_token = create_access_token({"sub": user_id}, expires_delta=timedelta(minutes=60))
-    redirect_url = f"http://localhost:5173/auth/callback?access_token={access_token}"
+    redirect_url = f"https://focus-journal-frontend.vercel.app/auth/callback?access_token={access_token}"
     return RedirectResponse(url=redirect_url)
 
 

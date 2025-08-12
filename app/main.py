@@ -39,8 +39,7 @@ async def startup_event():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # React app on port 3000 (adjust if needed)
-        "http://localhost:5173",  # React app on port 5173 (your frontend)
+        "https://focus-journal-frontend.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
