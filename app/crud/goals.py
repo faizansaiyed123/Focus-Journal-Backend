@@ -1,9 +1,9 @@
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.tables import Tables
+from db.tables import Tables
 from sqlalchemy import select, insert, update
 from fastapi import HTTPException, status
-from app.schemas.goals import GoalInout
+from schemas.goals import GoalInout
 from datetime import date
 from uuid import uuid4
 

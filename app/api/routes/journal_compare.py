@@ -5,9 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from collections import Counter
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db
-from app.core.dependencies import get_current_user
-from app.db.tables import Tables
+from db.session import get_db
+from core.dependencies import get_current_user
+from db.tables import Tables
 
 router = APIRouter()
 

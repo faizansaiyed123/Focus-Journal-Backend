@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, status, Query
 from typing import List
 from uuid import UUID
 from sqlalchemy import text
-from app.schemas.checkin import *
-from app.crud.checkin import *
-from app.core.dependencies import get_current_user
-from app.db.session import get_db
+from schemas.checkin import *
+from crud.checkin import *
+from core.dependencies import get_current_user
+from db.session import get_db
 
 router = APIRouter(prefix="/checkin", tags=["Check-ins"])
 

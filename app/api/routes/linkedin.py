@@ -2,10 +2,10 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert
-from app.core.oauth import oauth
-from app.db.session import get_db
-from app.core.security import create_access_token
-from app.db.tables import Tables
+from core.oauth import oauth
+from db.session import get_db
+from core.security import create_access_token
+from db.tables import Tables
 from uuid import uuid4
 import httpx
 
@@ -57,7 +57,7 @@ async def linkedin_callback(request: Request, db: AsyncSession = Depends(get_db)
             raise HTTPException(status_code=400, detail="No authorization code received")
         
         # Exchange code for token manually
-        from app.core.config import settings
+        from core.config import settings
         
         token_data = {
             "grant_type": "authorization_code",

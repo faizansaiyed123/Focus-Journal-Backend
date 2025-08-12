@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from app.api.routes import (
+from api.routes import (
     auth,
     github,
     google,
@@ -14,9 +14,10 @@ from app.api.routes import (
     goals,
     journal_compare,
 )
-from app.core.config import settings
-from app.db.table_creation_script import execute_sql_files
-from app.db.tables import Tables
+from core.config import settings
+
+from db.table_creation_script import execute_sql_files
+from db.tables import Tables
 import nltk
 
 tables = Tables()

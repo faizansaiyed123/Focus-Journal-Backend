@@ -5,12 +5,12 @@ from sqlalchemy import select, func
 from fastapi import status
 from fastapi import HTTPException
 from sqlalchemy import insert, update, delete, text
-from app.schemas.journal import *
-from app.db.tables import Tables
+from schemas.journal import *
+from db.tables import Tables
 from typing import Dict
 from collections import Counter
 from datetime import date, timedelta
-from app.utils.sentiment import get_sentiment_score
+from utils.sentiment import get_sentiment_score
 
 # Initialize table access
 tables = Tables()

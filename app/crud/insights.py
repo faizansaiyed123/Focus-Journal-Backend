@@ -2,13 +2,13 @@ from fastapi import status, HTTPException
 from typing import List, Dict
 from uuid import UUID
 from sqlalchemy import text, select, and_
-from app.schemas.checkin import *
-from app.db.tables import Tables
-from app.crud.insights import *
+from schemas.checkin import *
+from db.tables import Tables
+from crud.insights import *
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_
 from openai import AsyncOpenAI, OpenAIError
-from app.core.config import settings
+from core.config import settings
 
 OPENAI_API_KEY = settings.OPENAI_API_KEY
 tables = Tables()

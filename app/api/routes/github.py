@@ -3,11 +3,11 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse ,RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert
-from app.core.oauth import oauth
-from app.db.session import get_db
-from app.core.security import create_access_token
-from app.core.dependencies import get_current_user
-from app.db.tables import Tables
+from core.oauth import oauth
+from db.session import get_db
+from core.security import create_access_token
+from core.dependencies import get_current_user
+from db.tables import Tables
 import uuid
 from datetime import timedelta
 router = APIRouter(prefix="/auth/github", tags=["Auth"])

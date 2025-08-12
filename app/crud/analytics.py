@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from fastapi import HTTPException, status
-from app.db.tables import Tables
+from db.tables import Tables
 
 tables = Tables()
 

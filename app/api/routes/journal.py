@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db
-from app.schemas.journal import *
-from app.crud.journal import *
-from app.core.dependencies import get_current_user
-from app.db.tables import Tables
+from db.session import get_db
+from schemas.journal import *
+from crud.journal import *
+from core.dependencies import get_current_user
+from db.tables import Tables
 from typing import List
 from uuid import UUID
 

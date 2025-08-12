@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, status, HTTPException
-from app.db.session import get_db
-from app.schemas.goals import *
-from app.crud.goals import *
+from db.session import get_db
+from schemas.goals import *
+from crud.goals import *
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import get_current_user
+from core.dependencies import get_current_user
 
 
 router = APIRouter(prefix="/checkin", tags=["goals"])

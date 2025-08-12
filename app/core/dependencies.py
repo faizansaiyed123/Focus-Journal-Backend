@@ -1,9 +1,9 @@
 from fastapi import Depends, HTTPException
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.config import settings
-from app.db.tables import Tables
-from app.db.session import get_db
+from core.config import settings
+from db.tables import Tables
+from db.session import get_db
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.future import select
 from uuid import UUID

@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert, select
 from sqlalchemy.exc import IntegrityError
-from app.db.session import get_db
-from app.db.tables import Tables
-from app.schemas.users import UserCreate, UserLogin, Token
-from app.core.security import hash_password, verify_password, create_access_token
-from app.core.config import settings
+from db.session import get_db
+from db.tables import Tables
+from schemas.users import UserCreate, UserLogin, Token
+from core.security import hash_password, verify_password, create_access_token
+from core.config import settings
 from datetime import timedelta
-from app.api.routes.google import get_current_user_from_token
+from api.routes.google import get_current_user_from_token
 tables = Tables()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,7 +64,7 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
     )
     return {"access_token": token, "token_type": "bearer"}
 
-from app.core.dependencies import get_current_user
+from core.dependencies import get_current_user
 
 @router.get("/me")
 async def get_current_user_info(user=Depends(get_current_user)):

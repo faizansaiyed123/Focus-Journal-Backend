@@ -1,6 +1,6 @@
 from functools import lru_cache
 from sqlalchemy import MetaData
-from app.db.session import engine  # AsyncEngine instance
+from db.session import engine  # AsyncEngine instance
 
 
 @lru_cache()

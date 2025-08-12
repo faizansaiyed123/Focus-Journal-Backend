@@ -4,7 +4,7 @@ import asyncpg
 import os
 import re
 
-from app.core.config import settings
+from core.config import settings
 
 DATABASE_URL = settings.DATABASE_URL  # Use sync URL like: postgresql://...
 

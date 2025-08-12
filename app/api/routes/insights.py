@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, status, Query, Request, HTTPException
-from app.db.session import get_db
-from app.schemas.checkin import *
-from app.crud.insights import *
+from db.session import get_db
+from schemas.checkin import *
+from crud.insights import *
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import get_current_user
+from core.dependencies import get_current_user
 
 
 router = APIRouter(prefix="/checkin", tags=["journal-insights"])

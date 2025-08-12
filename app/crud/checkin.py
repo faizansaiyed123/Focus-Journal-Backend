@@ -1,7 +1,7 @@
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas.checkin import CheckinCreate, CheckinUpdate
-from app.db.tables import Tables
+from schemas.checkin import CheckinCreate, CheckinUpdate
+from db.tables import Tables
 from sqlalchemy import select, insert, update, delete, and_
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status

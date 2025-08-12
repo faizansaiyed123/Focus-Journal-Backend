@@ -3,11 +3,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import insert
-from app.core.oauth import oauth
-from app.db.session import get_db
-from app.core.security import create_access_token
+from core.oauth import oauth
+from db.session import get_db
+from core.security import create_access_token
 import uuid
-from app.db.tables import Tables
+from db.tables import Tables
 from datetime import timedelta
 import httpx
 import urllib.parse
@@ -16,7 +16,7 @@ from fastapi.responses import RedirectResponse
 
 tables = Tables()
 router = APIRouter(prefix="/auth/google", tags=["Auth"])
-from app.core.config import settings
+from core.config import settings
 import logging
 
 # Initialize logging
@@ -225,7 +225,7 @@ async def debug_endpoint(request: Request, db: AsyncSession = Depends(get_db)):
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt    
-from app.core.dependencies import get_current_user
+from core.dependencies import get_current_user
 from uuid import UUID
 
 security = HTTPBearer()
