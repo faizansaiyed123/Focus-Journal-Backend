@@ -138,7 +138,7 @@ async def linkedin_callback(request: Request, db: AsyncSession = Depends(get_db)
 
 
         return RedirectResponse(
-    url=f"http://https://focus-journal-frontend.vercel.app/auth/callback?access_token={jwt_token}&provider=linkedin"
+    url=f"https://focus-journal-frontend.vercel.app/auth/callback?access_token={jwt_token}&provider=linkedin"
 )
 
 
