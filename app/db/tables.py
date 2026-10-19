@@ -1,6 +1,7 @@
 from functools import lru_cache
+
 from sqlalchemy import MetaData
-from db.session import engine  # AsyncEngine instance
+from db.session import engine
 
 
 @lru_cache()
@@ -9,7 +10,6 @@ class Tables:
         self.metadata = MetaData()
 
     async def reflect_metadata(self):
-        # Reflect metadata from the DB using a synchronous call wrapped in run_sync
         async with engine.connect() as conn:
             await conn.run_sync(self.metadata.reflect)
 
@@ -32,3 +32,7 @@ class Tables:
     @property
     def goals(self):
         return self.metadata.tables.get("goals")
+
+    @property
+    def focus_sessions(self):
+        return self.metadata.tables.get("focus_sessions")

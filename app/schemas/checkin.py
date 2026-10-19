@@ -1,39 +1,82 @@
-from typing import Optional, List, Literal
-from pydantic import BaseModel, Field
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# ---------- Base Schema ----------
+Mood = Literal["bad", "okay", "good", "great", "happy"]
+
+
 class CheckinBase(BaseModel):
     checkin_date: date = Field(
-        ..., alias="date", description="Calendar date (YYYY-MM-DD)"
+        ...,
+        alias="date",
+        description="Calendar date in YYYY-MM-DD format",
     )
-    mood: str = Field(..., description="Mood must be one of: bad, okay, good, great")
-    focus_percent: int = Field(
-        ..., ge=0, le=100, description="Focus percentage (0 to 100)"
-    )
-    tags: Optional[List[str]] = Field(
-        default=[], description="Optional list of user-defined tags"
-    )
-    note: Optional[str] = Field(default=None, description="Optional reflection note")
+    mood: Mood
+    focus_percent: int = Field(..., ge=0, le=100)
+    tags: list[str] = Field(default_factory=list, max_length=30)
+    note: str | None = Field(default=None, max_length=10000)
+
+    @field_validator("mood", mode="before")
+    @classmethod
+    def normalize_mood(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, value: list[str]) -> list[str]:
+        cleaned = []
+        seen = set()
+        for item in value:
+            tag = item.strip().lstrip("#").strip().lower()
+            if tag and tag not in seen:
+                if len(tag) > 50:
+                    raise ValueError("Tags must be 50 characters or fewer")
+                cleaned.append(tag)
+                seen.add(tag)
+        return cleaned
 
 
-# ---------- Create Schema ----------
 class CheckinCreate(CheckinBase):
     pass
 
 
-# ---------- Update Schema ----------
 class CheckinUpdate(BaseModel):
-    mood: Optional[Literal["bad", "okay", "good", "great"]]
-    focus_percent: Optional[int] = Field(ge=0, le=100)
-    tags: Optional[List[str]]
-    note: Optional[str]
+    mood: Mood | None = None
+    focus_percent: int | None = Field(default=None, ge=0, le=100)
+    tags: list[str] | None = Field(default=None, max_length=30)
+    note: str | None = Field(default=None, max_length=10000)
+
+    @field_validator("mood", mode="before")
+    @classmethod
+    def normalize_mood(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        cleaned = []
+        seen = set()
+        for item in value:
+            tag = item.strip().lstrip("#").strip().lower()
+            if tag and tag not in seen:
+                if len(tag) > 50:
+                    raise ValueError("Tags must be 50 characters or fewer")
+                cleaned.append(tag)
+                seen.add(tag)
+        return cleaned
 
 
-# ---------- Output Schema ----------
 class CheckinOut(CheckinBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     id: UUID
     user_id: UUID
     created_at: datetime
@@ -41,10 +84,7 @@ class CheckinOut(CheckinBase):
 
 
 class StreakOut(BaseModel):
-    user_id: UUID = Field(..., description="User ID")
-    current_streak: int = Field(..., ge=0, description="Current ongoing streak")
-    longest_streak: int = Field(..., ge=0, description="Longest streak ever achieved")
-    last_checkin_date: Optional[date] = Field(None, description="Date of last check-in")
-
-    class Config:
-        orm_mode = True
+    user_id: UUID
+    current_streak: int = Field(..., ge=0)
+    longest_streak: int = Field(..., ge=0)
+    last_checkin_date: date | None = None
