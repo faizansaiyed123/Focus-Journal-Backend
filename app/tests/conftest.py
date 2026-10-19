@@ -1,16 +1,24 @@
 import os
+import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-# Force an isolated test configuration before importing application settings.
-os.environ["DATABASE_URL"] = "postgresql+asyncpg://postgres:postgres@localhost:5432/focus_journal_test"
+# Tests always use the dedicated CI database, never a developer or production DB.
+APP_ROOT = Path(__file__).resolve().parents[1]
+if str(APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(APP_ROOT))
+
+os.environ["DATABASE_URL"] = (
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/focus_journal_test"
+)
 os.environ["SECRET_KEY"] = "test-secret-key-use-only-in-automated-tests-123456"
 os.environ["SESSION_SECRET_KEY"] = "test-session-secret-use-only-in-automated-tests-123"
 os.environ["SESSION_COOKIE_SECURE"] = "false"
 os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:5173"
-# Tests must never send journal text to an external AI provider.
+# Automated tests must never send journal text to an external AI provider.
 os.environ["OPENAI_API_KEY"] = ""
 
 
