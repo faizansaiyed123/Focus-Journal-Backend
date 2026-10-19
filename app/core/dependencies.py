@@ -2,7 +2,8 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +36,7 @@ async def get_current_user(
         if not subject:
             raise HTTPException(status_code=401, detail="Invalid access token")
         user_id = UUID(str(subject))
-    except (JWTError, ValueError, TypeError):
+    except (PyJWTError, ValueError, TypeError):
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired access token",

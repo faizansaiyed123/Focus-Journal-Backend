@@ -10,7 +10,8 @@ from core.dependencies import get_current_user
 from core.security import create_access_token, hash_password, verify_password
 from db.session import get_db
 from db.tables import Tables
-from schemas.users import Token, UserCreate, UserLogin
+from schemas.users import AccessTokenResponse, OAuthCodeExchange, Token, UserCreate, UserLogin
+from services.oauth_login_codes import consume_oauth_login_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 tables = Tables()
@@ -44,10 +45,7 @@ async def register_user(
         await db.rollback()
         raise HTTPException(status_code=409, detail="Email already registered") from None
 
-    return {
-        "message": "User registered successfully",
-        "user_id": str(result.scalar_one()),
-    }
+    return {"message": "User registered successfully", "user_id": str(result.scalar_one())}
 
 
 @router.post("/login", response_model=Token)
@@ -76,8 +74,21 @@ async def login(
         {"sub": str(row["id"])},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    # The token field is a short-lived compatibility alias for the existing frontend.
+    # Keep this response alias while older password-login clients transition.
     return {"access_token": token, "token": token, "token_type": "bearer"}
+
+
+@router.post("/exchange", response_model=AccessTokenResponse)
+async def exchange_oauth_code(
+    payload: OAuthCodeExchange,
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = await consume_oauth_login_code(db, payload.code)
+    token = create_access_token(
+        {"sub": str(user_id)},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {"access_token": token, "token_type": "bearer"}
 
 
 @router.get("/me")

@@ -1,4 +1,3 @@
-from datetime import timedelta
 import secrets
 from urllib.parse import urlencode
 
@@ -9,15 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.oauth import get_oauth_provider
-from core.security import create_access_token
 from db.session import get_db
+from services.oauth_login_codes import issue_oauth_login_code
 from services.oauth_users import resolve_oauth_user
 
 router = APIRouter(prefix="/auth/linkedin", tags=["Auth"])
 
 
-def _frontend_callback(token: str) -> RedirectResponse:
-    query = urlencode({"access_token": token, "provider": "linkedin"})
+def _frontend_callback(code: str) -> RedirectResponse:
+    query = urlencode({"code": code, "provider": "linkedin"})
     return RedirectResponse(
         url=f"{settings.FRONTEND_BASE_URL.rstrip('/')}/auth/callback?{query}",
         status_code=303,
@@ -71,8 +70,5 @@ async def linkedin_callback(request: Request, db: AsyncSession = Depends(get_db)
         email=str(email),
         full_name=full_name,
     )
-    jwt_token = create_access_token(
-        {"sub": str(user["id"])},
-        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    return _frontend_callback(jwt_token)
+    code = await issue_oauth_login_code(db, user["id"])
+    return _frontend_callback(code)

@@ -9,11 +9,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=72)
     confirm_password: str = Field(min_length=8, max_length=72)
-    full_name: str | None = Field(
-        default=None,
-        max_length=255,
-        validation_alias=AliasChoices("full_name", "name"),
-    )
+    full_name: str | None = Field(default=None, max_length=255, validation_alias=AliasChoices("full_name", "name"))
 
     @field_validator("password")
     @classmethod
@@ -60,5 +56,14 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    # Compatibility alias for the already-deployed frontend.
+    # Compatibility alias retained for older password-login clients.
     token: str | None = None
+
+
+class OAuthCodeExchange(BaseModel):
+    code: str = Field(min_length=32, max_length=128)
+
+
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
