@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from passlib.context import CryptContext
 
 from core.config import settings
@@ -40,7 +41,7 @@ def verify_access_token(token: str) -> dict[str, Any] | None:
             settings.SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
         )
-    except JWTError:
+    except PyJWTError:
         return None
 
 
