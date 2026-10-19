@@ -33,6 +33,33 @@ def test_register_accepts_existing_frontend_name_field_and_login_alias(client):
     assert me.json()["full_name"] == "Legacy Name Field"
 
 
+def test_oauth_exchange_rejects_unknown_code(client):
+    response = client.post("/auth/exchange", json={"code": "x" * 43})
+    assert response.status_code == 401, response.text
+
+
+def test_oauth_exchange_returns_access_token(client, user_factory, monkeypatch):
+    from uuid import UUID
+
+    user = user_factory()
+
+    async def consume_code(_db, code):
+        assert code == "c" * 43
+        return UUID(user["user_id"])
+
+    monkeypatch.setattr("api.routes.auth.consume_oauth_login_code", consume_code)
+    response = client.post("/auth/exchange", json={"code": "c" * 43})
+    assert response.status_code == 200, response.text
+    assert response.json()["access_token"]
+    assert "token" not in response.json()
+
+    me = client.get(
+        "/auth/me",
+        headers={"Authorization": "Bearer " + response.json()["access_token"]},
+    )
+    assert me.status_code == 200, me.text
+
+
 def test_journal_crud_and_per_user_ownership(client, user_factory):
     owner = user_factory()
     other = user_factory()

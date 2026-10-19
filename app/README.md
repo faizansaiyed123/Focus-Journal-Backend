@@ -1,14 +1,13 @@
 # Focus Journal API
 
-Focus Journal is a focused personal tool for journal entries, one short daily check-in, intentional focus sessions, and simple history-based review. Keep the experience cohesive: billing, reminders, unrelated trackers, and speculative AI coaching are deferred.
+Focus Journal is a focused personal tool for journal entries, one short daily check-in, intentional focus sessions, and simple history-based review. Billing, reminders, unrelated trackers, and speculative AI coaching are deferred.
 
 ## Stack
 
-- Python 3.12
-- FastAPI and Pydantic
-- PostgreSQL, SQLAlchemy async sessions and asyncpg
-- JWT bearer authentication
-- Authlib OAuth integrations, enabled only when credentials are configured
+- Python 3.12, FastAPI, and Pydantic
+- PostgreSQL, SQLAlchemy async sessions, and asyncpg
+- JWT bearer authentication with short-lived OAuth code exchange
+- Optional Google, GitHub, and LinkedIn OAuth
 - Optional OpenAI journal insights, gated by explicit per-user consent
 
 ## Local configuration
@@ -23,7 +22,7 @@ Generate independent secrets with:
 
 Replace the example SECRET_KEY and SESSION_SECRET_KEY with separately generated values. Both must be at least 32 characters. Set SESSION_COOKIE_SECURE=false only for local HTTP development; keep it enabled in HTTPS deployments.
 
-Configure DATABASE_URL and CORS_ORIGINS for your local environment. Configure Google, GitHub, LinkedIn and OpenAI credentials only when enabling those integrations. They are optional for the core API and tests.
+Configure DATABASE_URL and CORS_ORIGINS for your environment. Configure OAuth and OpenAI credentials only when enabling those integrations.
 
 ## Run locally
 
@@ -33,7 +32,7 @@ Configure DATABASE_URL and CORS_ORIGINS for your local environment. Configure Go
     pip install -r requirements.txt -r requirements-dev.txt
     uvicorn main:app --reload
 
-Migrations are applied on startup and schema metadata is reflected afterward. The migration runner serializes migration attempts using a PostgreSQL advisory lock and records only successful scripts. For scaled production deployments, run migrations as a single deployment step before scaling API workers.
+Migrations are applied on startup and schema metadata is reflected afterward. Migration attempts use a PostgreSQL advisory lock and are recorded only after successful execution. For scaled production deployments, run migrations as a single deployment step before scaling API workers.
 
 ## Main API
 
@@ -41,7 +40,7 @@ All private endpoints require Authorization: Bearer token.
 
 | Area | Routes |
 |---|---|
-| Authentication | POST /auth/register, POST /auth/login, GET /auth/me |
+| Authentication | POST /auth/register, POST /auth/login, POST /auth/exchange, GET /auth/me |
 | Journal | POST/GET /journal/, GET/PUT/DELETE /journal/{id}, GET /journal/stats |
 | Check-ins | POST/GET /checkin/, GET /checkin/today, GET /checkin/stats, GET /checkin/streak, GET/PUT/DELETE by id |
 | Search and calendar | GET /checkin/journal/search?keyword=..., GET /checkin/journal/tags, GET /checkin/journal/calendar |
@@ -50,34 +49,27 @@ All private endpoints require Authorization: Bearer token.
 | Summary | GET /weekly-summary, GET /monthly-summary, GET /tag-summary, POST /journal/compare |
 | Health | GET /health |
 
-The older /checkin/checkin/today, /checkin/checkin/stats and /checkin/checkin/history paths remain as hidden aliases while the existing frontend is being integrated with the canonical paths.
+The old /checkin/checkin/today, /checkin/checkin/stats and /checkin/checkin/history paths remain as hidden compatibility aliases.
 
 ## Product contracts
 
-- A journal entry is free-form writing. A daily check-in is a separate structured record; both can appear in calendar history and search remains focused on journal entries.
-- A check-in is unique per user-local date. Mood values are normalized and checked by the API and database.
-- Streak calculations derive from saved check-in dates instead of a separately maintained counter.
-- Only one focus session per user may be active (running or paused). A session supports running to paused to running to completed/abandoned transitions. Elapsed time comes from server timestamps and excludes recorded pauses.
+- A journal entry is free-form writing; a daily check-in is a separate structured record.
+- A check-in is unique per user-local date. Mood values and tags are normalized by the API.
+- Streak calculations derive from saved check-in dates.
+- A user may have only one active focus session. Paused time does not count toward elapsed focus time.
 - User timezone is an IANA timezone stored in profile settings.
-- AI insights return 403 unless the user explicitly enables AI processing; if the provider is not configured they return 503. A consent/settings experience must be added to the frontend before re-exposing this feature.
-- Weekly and monthly summaries return actual saved data. Missing history is represented as an empty result, not invented scores.
+- AI insights return 403 until a user opts into AI processing, and 503 when the provider is not configured.
+- Summaries use saved data. Empty history does not create fabricated scores.
 
-## Migrations and existing databases
+## OAuth security and deployment
 
-The SQL files are ordered by the numeric migration prefix. The V8 recovery migration repairs core columns idempotently for databases whose older migration runner skipped a file without recording it. Do not manually delete migration records.
+OAuth redirects use a high-entropy single-use code instead of a bearer token. The code is stored only as a SHA-256 digest, expires after two minutes, and is atomically consumed by POST /auth/exchange. The frontend removes the code from its callback URL immediately and exchanges it for an access token over HTTPS. Deploy the frontend and backend changes together.
 
-Previously deployed databases may already contain secrets or a partially applied schema. Rotate credentials that may have appeared in repository history. Before applying this version to valuable production data, take a database backup and test the migrations against a restore of the existing schema.
+Previously deployed databases may contain secrets or partially applied schemas. Rotate credentials that have appeared in repository history. Before applying migrations to valuable production data, take a backup and test against a restored copy. Provide secrets through deployment environment variables; Docker images must not contain .env.
 
 ## Tests
 
     pip install -r requirements.txt -r requirements-dev.txt
     pytest -q
 
-The GitHub Actions workflow runs against a disposable PostgreSQL service. Tests require no live OAuth provider or AI credentials. The Docker build installs the NLTK VADER lexicon during image construction; local installations that use sentiment analysis should install that resource before calling the sentiment endpoint.
-
-## Deployment notes
-
-- Use the root Dockerfile with repository root as build context, or app/Dockerfile with app/ as build context.
-- Provide environment variables through the deployment platform; Docker intentionally does not copy environment files.
-- Keep cookie Secure enabled for HTTPS and restrict CORS to exact frontend origins.
-- OAuth redirects still deliver the legacy access token in the query string to preserve the currently deployed frontend. This remains a security limitation until the frontend adopts a one-time authorization-code exchange; do not consider the full application production-ready until that cross-repository integration is completed.
+CI runs against a disposable PostgreSQL service. Tests need no live OAuth provider or AI credentials. The Docker build installs the NLTK VADER lexicon; local sentiment-analysis environments should install that resource before use.

@@ -36,3 +36,7 @@ class Tables:
     @property
     def focus_sessions(self):
         return self.metadata.tables.get("focus_sessions")
+
+    @property
+    def oauth_login_codes(self):
+        return self.metadata.tables.get("oauth_login_codes")
