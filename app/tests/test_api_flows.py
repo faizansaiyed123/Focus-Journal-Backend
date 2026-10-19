@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlparse
 
 from zoneinfo import ZoneInfo
 
@@ -31,6 +31,52 @@ def test_register_accepts_existing_frontend_name_field_and_login_alias(client):
     )
     assert me.status_code == 200, me.text
     assert me.json()["full_name"] == "Legacy Name Field"
+
+
+def test_google_oauth_code_is_single_use_end_to_end(client, monkeypatch):
+    import uuid
+
+    email = f"oauth-{uuid.uuid4().hex}@example.com"
+    provider_id = "google-" + uuid.uuid4().hex
+
+    class FakeGoogleProvider:
+        async def authorize_access_token(self, _request):
+            return {
+                "userinfo": {
+                    "email": email,
+                    "sub": provider_id,
+                    "email_verified": True,
+                    "name": "OAuth Test User",
+                }
+            }
+
+    monkeypatch.setattr(
+        "api.routes.google.get_oauth_provider",
+        lambda _provider: FakeGoogleProvider(),
+    )
+
+    redirect = client.get("/auth/google/callback", follow_redirects=False)
+    assert redirect.status_code == 303, redirect.text
+    callback_url = urlparse(redirect.headers["location"])
+    assert callback_url.path == "/auth/callback"
+    params = parse_qs(callback_url.query)
+    assert params["provider"] == ["google"]
+    assert "access_token" not in params
+    code = params["code"][0]
+
+    exchange = client.post("/auth/exchange", json={"code": code})
+    assert exchange.status_code == 200, exchange.text
+    access_token = exchange.json()["access_token"]
+
+    profile = client.get(
+        "/auth/me",
+        headers={"Authorization": "Bearer " + access_token},
+    )
+    assert profile.status_code == 200, profile.text
+    assert profile.json()["email"] == email
+
+    replay = client.post("/auth/exchange", json={"code": code})
+    assert replay.status_code == 401, replay.text
 
 
 def test_oauth_exchange_rejects_unknown_code(client):
