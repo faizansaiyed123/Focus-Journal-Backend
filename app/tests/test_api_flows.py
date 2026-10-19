@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from zoneinfo import ZoneInfo
@@ -73,6 +73,39 @@ def test_journal_crud_and_per_user_ownership(client, user_factory):
     assert client.get(f"/journal/{entry['id']}", headers=owner["headers"]).status_code == 404
 
 
+def test_journal_period_comparison_uses_journal_entries_and_empty_ranges(client, user_factory):
+    user = user_factory()
+    created = client.post(
+        "/journal/",
+        headers=user["headers"],
+        json={
+            "title": "Comparison target",
+            "content": "A focused session",
+            "mood": "good",
+            "focus_percent": 75,
+            "tags": ["deep-work"],
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    today = datetime.now(timezone.utc).date()
+    body = {
+        "start_range_1": (today - timedelta(days=6)).isoformat(),
+        "end_range_1": today.isoformat(),
+        "start_range_2": (today - timedelta(days=20)).isoformat(),
+        "end_range_2": (today - timedelta(days=14)).isoformat(),
+    }
+    response = client.post("/journal/compare", headers=user["headers"], json=body)
+    assert response.status_code == 200, response.text
+    payload = response.json()["data"]
+    assert payload["range_1"]["entry_count"] == 1
+    assert payload["range_1"]["average_focus"] == 75
+    assert payload["range_1"]["most_common_mood"] == "good"
+    assert len(payload["range_1"]["days"]) == 1
+    assert payload["range_2"]["entry_count"] == 0
+    assert "average_focus" not in payload["range_2"]
+
+
 def test_checkin_create_update_today_duplicate_and_streak(client, user_factory):
     user = user_factory()
     today = datetime.now(timezone.utc).date().isoformat()
@@ -105,7 +138,6 @@ def test_checkin_create_update_today_duplicate_and_streak(client, user_factory):
     assert duplicate.status_code == 409
 
     assert client.get("/checkin/today", headers=user["headers"]).json()["checked"] is True
-    # Legacy route consumed by the deployed frontend remains available.
     assert (
         client.get("/checkin/checkin/today", headers=user["headers"]).json()["checked"]
         is True
@@ -178,9 +210,8 @@ def test_search_binds_user_input_and_ai_requires_opt_in(client, user_factory):
         json={"ai_processing_consent": True},
     )
     assert consent.status_code == 200, consent.text
-    if not __import__("os").environ.get("OPENAI_API_KEY"):
-        unavailable = client.get("/checkin/journal/insights", headers=user["headers"])
-        assert unavailable.status_code == 503
+    unavailable = client.get("/checkin/journal/insights", headers=user["headers"])
+    assert unavailable.status_code == 503
 
 
 def test_protected_resources_require_authentication(client):
