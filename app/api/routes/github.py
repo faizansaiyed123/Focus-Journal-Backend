@@ -1,63 +1,90 @@
-
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse ,RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert
-from core.oauth import oauth
-from db.session import get_db
-from core.security import create_access_token
-from core.dependencies import get_current_user
-from db.tables import Tables
-import uuid
 from datetime import timedelta
+from urllib.parse import urlencode
+
+from authlib.integrations.base_client.errors import OAuthError
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config import settings
+from core.dependencies import get_current_user
+from core.oauth import get_oauth_provider
+from core.security import create_access_token
+from db.session import get_db
+from services.oauth_users import resolve_oauth_user
+
 router = APIRouter(prefix="/auth/github", tags=["Auth"])
-tables = Tables()
+
+
+def _frontend_callback(token: str) -> RedirectResponse:
+    query = urlencode({"access_token": token, "provider": "github"})
+    return RedirectResponse(
+        url=f"{settings.FRONTEND_BASE_URL.rstrip('/')}/auth/callback?{query}",
+        status_code=303,
+        headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"},
+    )
 
 
 @router.get("/login")
 async def github_login(request: Request):
-    redirect_uri = request.url_for("github_callback")
-    return await oauth.github.authorize_redirect(request, redirect_uri)
+    provider = get_oauth_provider("github")
+    return await provider.authorize_redirect(
+        request,
+        str(request.url_for("github_callback")),
+    )
 
 
-@router.get("/callback")
+@router.get("/callback", name="github_callback")
 async def github_callback(request: Request, db: AsyncSession = Depends(get_db)):
-    token = await oauth.github.authorize_access_token(request)
-    resp = await oauth.github.get("user", token=token)
-    profile = resp.json()
+    provider = get_oauth_provider("github")
+    try:
+        token = await provider.authorize_access_token(request)
+        profile_response = await provider.get("user", token=token)
+        if profile_response.is_error:
+            raise HTTPException(status_code=400, detail="GitHub profile could not be verified")
+        profile = profile_response.json()
 
-    github_id = str(profile["id"])
-    email = profile.get("email") or f"{github_id}@github.fake"
-    full_name = profile.get("name")
+        emails_response = await provider.get("user/emails", token=token)
+        if emails_response.is_error:
+            raise HTTPException(status_code=400, detail="GitHub email could not be verified")
+        verified_emails = [
+            item
+            for item in emails_response.json()
+            if item.get("verified") is True and item.get("email")
+        ]
+        primary = next((item for item in verified_emails if item.get("primary")), None)
+        email_record = primary or (verified_emails[0] if verified_emails else None)
+    except OAuthError:
+        raise HTTPException(status_code=400, detail="GitHub sign-in could not be verified") from None
 
-    stmt = select(tables.users).where(tables.users.c.github_id == github_id)
-    result = await db.execute(stmt)
-    user_row = result.first()
-
-    if not user_row:
-        user_id = str(uuid.uuid4())
-        insert_stmt = insert(tables.users).values(
-            id=user_id,
-            email=email,
-            github_id=github_id,
-            full_name=full_name,
-            is_active=True,
+    if not email_record:
+        raise HTTPException(
+            status_code=400,
+            detail="GitHub must provide a verified email address",
         )
-        await db.execute(insert_stmt)
-        await db.commit()
-    else:
-        user_id = str(user_row.id)
-    access_token = create_access_token({"sub": user_id}, expires_delta=timedelta(minutes=60))
-    redirect_url = f"https://focus-journal-frontend.vercel.app/auth/callback?access_token={access_token}"
-    return RedirectResponse(url=redirect_url)
+    provider_id = profile.get("id")
+    if provider_id is None:
+        raise HTTPException(status_code=400, detail="GitHub did not return a valid identity")
 
+    user = await resolve_oauth_user(
+        db,
+        provider="github",
+        provider_id=str(provider_id),
+        email=str(email_record["email"]),
+        full_name=profile.get("name") or profile.get("login"),
+    )
+    jwt_token = create_access_token(
+        {"sub": str(user["id"])},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return _frontend_callback(jwt_token)
 
 
 @router.get("/me")
-async def get_me(current_user=Depends(get_current_user)):
+async def get_me(current_user: dict = Depends(get_current_user)):
     return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "github_id": current_user.github_id,
+        "id": str(current_user["id"]),
+        "email": current_user["email"],
+        "full_name": current_user.get("full_name"),
+        "github_id": current_user.get("github_id"),
     }

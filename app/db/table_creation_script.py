@@ -1,101 +1,65 @@
-# app/db/table_creation_script.py
-import asyncpg
-
-import os
 import re
+from pathlib import Path
+
+import asyncpg
 
 from core.config import settings
 
-DATABASE_URL = settings.DATABASE_URL  # Use sync URL like: postgresql://...
-
-
-def table_exists(cursor, table_name):
-    cursor.execute(
-        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s);",
-        (table_name,),
-    )
-    return cursor.fetchone()[0]
-
-
-def extract_version(filename):
-    # Use regex to find the numeric part of the filename
-    match = re.search(r"V(\d+)", filename)
-    return (
-        int(match.group(1)) if match else float("inf")
-    )  # Return a large number if no match
-
-
 DATABASE_URL = settings.DATABASE_URL.replace(
-    "postgresql+asyncpg", "postgresql"
-)  # required for asyncpg
+    "postgresql+asyncpg://",
+    "postgresql://",
+)
 
 
-async def table_exists(conn, table_name: str) -> bool:
-    result = await conn.fetchval(
-        """
-        SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_name = $1
-        );
-    """,
-        table_name,
-    )
-    return result
+def extract_version(filename: str) -> int:
+    match = re.match(r"^[vV](\d+)", filename)
+    return int(match.group(1)) if match else 2**31 - 1
 
 
-def extract_version(filename):
-    match = re.search(r"V(\d+)", filename)
-    return int(match.group(1)) if match else float("inf")
+async def execute_sql_files() -> None:
+    database_dir = Path(__file__).resolve().parent.parent / "database"
+    if not database_dir.is_dir():
+        raise FileNotFoundError(f"Database migration directory not found: {database_dir}")
 
-
-async def execute_sql_files():
-    conn = await asyncpg.connect(DATABASE_URL)
-
-    # Ensure the migrations table exists
-    await conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS migrations (
-            id SERIAL PRIMARY KEY,
-            file_name VARCHAR(255) NOT NULL UNIQUE,
-            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    """
+    sql_files = sorted(
+        (
+            path for path in database_dir.iterdir()
+            if path.is_file() and path.suffix.lower() == ".sql"
+        ),
+        key=lambda path: (extract_version(path.name), path.name.lower()),
     )
 
-    # Get list of already executed files
-    rows = await conn.fetch("SELECT file_name FROM migrations;")
-    executed_files = {row["file_name"] for row in rows}
+    conn = await asyncpg.connect(DATABASE_URL, timeout=10)
+    try:
+        # Avoid two workers applying the same migration at the same time.
+        await conn.fetchval("SELECT pg_advisory_lock(734821609)")
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS migrations (
+                id SERIAL PRIMARY KEY,
+                file_name VARCHAR(255) NOT NULL UNIQUE,
+                executed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        rows = await conn.fetch("SELECT file_name FROM migrations")
+        executed_files = {row["file_name"] for row in rows}
 
-    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    DATABASE_DIR = os.path.join(BASE_DIR, "database")
-
-    if not os.path.exists(DATABASE_DIR):
-        raise FileNotFoundError(f"Database directory not found: {DATABASE_DIR}")
-
-    sql_files = sorted(os.listdir(DATABASE_DIR), key=extract_version)
-
-    for file_name in sql_files:
-        if file_name in executed_files:
-            continue
-
-        file_path = os.path.join(DATABASE_DIR, file_name)
-        if not os.path.isfile(file_path):
-            raise FileNotFoundError(f"SQL file not found: {file_path}")
-
-        with open(file_path, "r") as f:
-            sql = f.read()
-
-        first_line = sql.strip().split("\n")[0].strip().lower()
-        if first_line.startswith("create table"):
-            table_name = first_line.split(" ")[2]
-            table_name = table_name.replace("if not exists", "").strip("();")
-            if await table_exists(conn, table_name):
-                print(f"Skipping {file_name}: Table {table_name} already exists.")
+        for migration_path in sql_files:
+            if migration_path.name in executed_files:
                 continue
 
-        print(f"Executing: {file_name}")
-        await conn.execute(sql)
-        await conn.execute("INSERT INTO migrations (file_name) VALUES ($1);", file_name)
-        print(f"Executed: {file_name}")
+            sql = migration_path.read_text(encoding="utf-8").strip()
+            if not sql:
+                continue
 
-    await conn.close()
+            # Persist the migration record only after all statements succeed.
+            async with conn.transaction():
+                await conn.execute(sql)
+                await conn.execute(
+                    "INSERT INTO migrations (file_name) VALUES ($1)",
+                    migration_path.name,
+                )
+    finally:
+        # Closing the connection releases the session-level advisory lock.
+        await conn.close()

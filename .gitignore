@@ -1,0 +1,22 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+app/.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Local tooling
+.DS_Store
+.idea/
+.vscode/

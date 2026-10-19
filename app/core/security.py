@@ -1,8 +1,11 @@
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from jose import jwt, JWTError
-from core.config import settings
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
 from fastapi import HTTPException
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+from core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -11,39 +14,42 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def create_access_token(data: dict, expires_delta: timedelta):
-    """Creates a JWT access token with expiration."""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-
-
-def verify_access_token(token: str):
+def verify_password(plain_password: str, hashed_password: str | None) -> bool:
+    if not hashed_password:
+        return False
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
+        return pwd_context.verify(plain_password, hashed_password)
+    except (TypeError, ValueError):
+        return False
 
 
-def decode_access_token(token: str):
+def create_access_token(
+    data: dict[str, Any],
+    expires_delta: timedelta | None = None,
+) -> str:
+    payload = data.copy()
+    lifetime = expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload["exp"] = datetime.now(timezone.utc) + lifetime
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def verify_access_token(token: str) -> dict[str, Any] | None:
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        return jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
         )
-        return payload
     except JWTError:
+        return None
+
+
+def decode_access_token(token: str) -> dict[str, Any]:
+    payload = verify_access_token(token)
+    if payload is None:
         raise HTTPException(
             status_code=401,
-            detail=Messages.INVALID_TOKEN,
+            detail="Invalid or expired access token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return payload

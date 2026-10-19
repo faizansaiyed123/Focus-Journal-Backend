@@ -1,46 +1,64 @@
-from pydantic import BaseModel, EmailStr, validator
 import re
-from typing import Optional
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 class UserCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     email: EmailStr
-    password: str
-    confirm_password: str
-    full_name: Optional[str] = None
+    password: str = Field(min_length=8, max_length=72)
+    confirm_password: str = Field(min_length=8, max_length=72)
+    full_name: str | None = Field(
+        default=None,
+        max_length=255,
+        validation_alias=AliasChoices("full_name", "name"),
+    )
 
-    @validator("password")
-    def validate_password_strength(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain at least one uppercase letter")
-        if not re.search(r"[a-z]", v):
-            raise ValueError("Password must contain at least one lowercase letter")
-        if not re.search(r"[0-9]", v):
-            raise ValueError("Password must contain at least one number")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-            raise ValueError("Password must contain at least one special character")
-        return v
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must not exceed 72 UTF-8 bytes")
+        checks = (
+            (r"[A-Z]", "at least one uppercase letter"),
+            (r"[a-z]", "at least one lowercase letter"),
+            (r"[0-9]", "at least one number"),
+            (r'[!@#$%^&*(),.?":{}|<>]', "at least one special character"),
+        )
+        for pattern, message in checks:
+            if not re.search(pattern, value):
+                raise ValueError(f"Password must contain {message}")
+        return value
 
-    @validator("confirm_password")
-    def passwords_match(cls, v, values):
-        if "password" in values and v != values["password"]:
+    @field_validator("full_name")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    @model_validator(mode="after")
+    def passwords_must_match(self):
+        if self.password != self.confirm_password:
             raise ValueError("Passwords do not match")
-        return v
+        return self
 
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=72)
 
 
 class UserOut(BaseModel):
     id: str
     email: EmailStr
-    full_name: Optional[str]
+    full_name: str | None = None
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    # Compatibility alias for the already-deployed frontend.
+    token: str | None = None
