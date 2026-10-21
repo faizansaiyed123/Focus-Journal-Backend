@@ -1,6 +1,3 @@
--- Recovery migration for databases previously started with the old migration
--- runner, which could skip migrations without recording their execution.
--- This file deliberately makes the core schema additions idempotent.
 ALTER TABLE journal_entries
     ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE journal_entries
