@@ -56,7 +56,6 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    # Compatibility alias retained for older password-login clients.
     token: str | None = None
 
 

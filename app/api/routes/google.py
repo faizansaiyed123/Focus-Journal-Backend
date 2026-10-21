@@ -16,7 +16,6 @@ router = APIRouter(prefix="/auth/google", tags=["Auth"])
 
 
 def _frontend_callback(code: str) -> RedirectResponse:
-    # Retained temporarily to match the deployed frontend callback contract.
     query = urlencode({"code": code, "provider": "google"})
     return RedirectResponse(
         url=f"{settings.FRONTEND_BASE_URL.rstrip('/')}/auth/callback?{query}",

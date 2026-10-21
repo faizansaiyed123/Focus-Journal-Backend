@@ -71,7 +71,6 @@ async def weekly_summary(
         db,
         current_user.get("timezone") or "UTC",
     )
-    # Keep canonical fields nested under data and provide top-level transitional aliases.
     return {"message": result["message"], "data": result["data"], **result["data"]}
 
 

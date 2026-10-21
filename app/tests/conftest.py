@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-# Tests always use the dedicated CI database, never a developer or production DB.
 APP_ROOT = Path(__file__).resolve().parents[1]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
@@ -18,7 +17,6 @@ os.environ["SESSION_SECRET_KEY"] = "test-session-secret-use-only-in-automated-te
 os.environ["SESSION_COOKIE_SECURE"] = "false"
 os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:5173"
-# Automated tests must never send journal text to an external AI provider.
 os.environ["OPENAI_API_KEY"] = ""
 
 

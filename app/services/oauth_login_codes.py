@@ -20,7 +20,6 @@ async def issue_oauth_login_code(db: AsyncSession, user_id: UUID) -> str:
     code_hash = hashlib.sha256(raw_code.encode("utf-8")).hexdigest()
     codes = tables.oauth_login_codes
 
-    # Opportunistically prune old records so this small table stays bounded.
     await db.execute(delete(codes).where(codes.c.expires_at < now - timedelta(days=1)))
     await db.execute(
         codes.insert().values(
@@ -63,7 +62,6 @@ async def consume_oauth_login_code(db: AsyncSession, raw_code: str) -> UUID:
         select(tables.users.c.is_active).where(tables.users.c.id == user_id)
     )
     user = user_result.first()
-    # Burn the code even if the account was disabled after it was issued.
     await db.commit()
 
     if user is None or not user[0]:

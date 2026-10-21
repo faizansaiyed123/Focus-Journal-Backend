@@ -51,9 +51,6 @@ jobs:
       - name: Audit Python dependencies
         run: |
           python -m pip install pip-audit
-          # PYSEC-2026-3740 covers NLTK model-artifact path APIs; this app only uses
-          # SentimentIntensityAnalyzer/VADER and does not expose those model APIs.
-          # Keep every other advisory blocking and revisit when upstream publishes a fix.
           pip-audit -r requirements.txt -r requirements-dev.txt --ignore-vuln PYSEC-2026-3740
       - name: Compile backend
         run: python -m compileall -q .

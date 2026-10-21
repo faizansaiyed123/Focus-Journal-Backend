@@ -8,7 +8,6 @@ def _get_sentiment_analyzer() -> SentimentIntensityAnalyzer:
     try:
         return SentimentIntensityAnalyzer()
     except LookupError:
-        # Do not initiate network downloads or weaken TLS in a user request.
         raise RuntimeError(
             "VADER lexicon is not installed; install it during deployment build"
         ) from None

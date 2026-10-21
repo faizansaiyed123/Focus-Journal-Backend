@@ -31,7 +31,6 @@ async def execute_sql_files() -> None:
 
     conn = await asyncpg.connect(DATABASE_URL, timeout=10)
     try:
-        # Avoid two workers applying the same migration at the same time.
         await conn.fetchval("SELECT pg_advisory_lock(734821609)")
         await conn.execute(
             """
@@ -53,7 +52,6 @@ async def execute_sql_files() -> None:
             if not sql:
                 continue
 
-            # Persist the migration record only after all statements succeed.
             async with conn.transaction():
                 await conn.execute(sql)
                 await conn.execute(
@@ -61,5 +59,4 @@ async def execute_sql_files() -> None:
                     migration_path.name,
                 )
     finally:
-        # Closing the connection releases the session-level advisory lock.
         await conn.close()

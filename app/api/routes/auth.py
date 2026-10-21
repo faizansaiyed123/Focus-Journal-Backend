@@ -74,7 +74,6 @@ async def login(
         {"sub": str(row["id"])},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    # Keep this response alias while older password-login clients transition.
     return {"access_token": token, "token": token, "token_type": "bearer"}
 
 
